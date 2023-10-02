@@ -14,9 +14,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Work breakdown
 
--   *Name1 Surname1*:
--   *Name2 Surname2*:
--   *Name3 Surname3*:
+-   *Mykola Vysotskyi*:
+-   *Dmytro Shumskyi*:
+-   *Viktoriia Prokhorova*:
 
 ## Introduction
 
