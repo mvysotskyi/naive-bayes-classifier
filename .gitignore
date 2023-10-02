@@ -18,6 +18,12 @@
 # Output files from R CMD check
 /*.Rcheck/
 
+# Rproj
+*.Rproj
+
+# Intro.Rmd
+intro-R.Rmd
+
 # RStudio files
 .Rproj.user/
 
