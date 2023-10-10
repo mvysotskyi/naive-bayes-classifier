@@ -5,16 +5,20 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 
-f1Score <- function(y_true, y_pred)
+f1Score <- function(y_true, y_pred) {
+    tp <- sum(y_true == y_pred & y_true == TRUE)
+    fp <- sum(y_true != y_pred & y_true == FALSE)
+    fn <- sum(y_true != y_pred & y_true == TRUE)
+	
+    precision <- tp / (tp + fp)
+    recall <- tp / (tp + fn)
+	
+    return (2 * precision * recall / (precision + recall))
+}
+
+accuracy <- function(y_true, y_pred)
 {
-    true_positives <- sum(y_true * y_pred)
-    predicted_positives <- sum(y_pred)
-    possible_positives <- sum(y_true)
-
-    precision <- true_positives / predicted_positives
-    recall <- true_positives / possible_positives
-
-    return (2 * precision * recall) / (precision + recall)
+    return (sum(y_true == y_pred) / length(y_true))
 }
 
 freqDataframe <- function(dataframe, column, stop_words = NULL)
@@ -61,9 +65,13 @@ naiveBayes <- setRefClass("naiveBayes",
 	# return prediction for a single message 
 	predict = function(message)
 	{
+	    if(nchar(message) == 0) { 
+		print("Please provide a message to predict!")
+		return (NULL)
+	    }
 	    # Convert message to bag of words
 	    wrapperDf <- data.frame(word = message)
-	    tokens <- unnest_tokens(wrapperDf, word, word)
+	    tokens <- unnest_tokens(wrapperDf, word, word) %>% filter(!word %in% splitted)
 	    
 	    # Total messages count
 	    totalCount <- hamCount + spamCount
@@ -72,63 +80,34 @@ naiveBayes <- setRefClass("naiveBayes",
  
 
 	    # Calculate probability of message being ham
-	    hamProb <- 1
+	    hamProb <- hamClassProb
 
 	    #print("tehre")
 	    for (i in 1:nrow(tokens))
 	    {
     		word <- tokens[i, ]
 		
-		a <- 0
-			
-		if(!is.na(any(hamFreq$word == word)) && any(hamFreq$word == word))
-		{
-		    a <- hamFreq[hamFreq$word == word, "n"]$n
-		}	
+		inHamCount <- 0
+		if(!is.na(any(hamFreq$word == word)) && any(hamFreq$word == word)) { inHamCount <- hamFreq[hamFreq$word == word, "n"]$n }
 
-
-		if (identical(a, integer(0)))
-		{
-		    a <- 0
-		}
-
-		hamProb <- hamProb * (a + 1) / (totalCount)
+		hamProb <- hamProb * (inHamCount + 1) / (hamCount + totalCount)
 	    }
 
-	    hamProb <- hamProb * hamClassProb
 
 	    # Calculate probability of message being spam
-	    spamProb <- 1
+	    spamProb <- spamClassProb
 
 	    for (i in 1:nrow(tokens))
 	    {
 		word <- tokens[i, ]	
 		
-		a <- 0
-		if(!is.na(any(spamFreq$word == word)) && any(spamFreq$word == word))
-		{
-		    a <- spamFreq[spamFreq$word == word, "n"]$n
-		}
+		inSpamCount <- 0
+		if(!is.na(any(spamFreq$word == word)) && any(spamFreq$word == word)) { inSpamCount <- spamFreq[spamFreq$word == word, "n"]$n }
 
-		if (identical(a, integer(0)))
-		{
-		    a <- 0
-		}
-
-		spamProb <- spamProb * (a + 1) / (totalCount)
+		spamProb <- spamProb * (inSpamCount + 1) / (spamCount + totalCount)
     	    }
 
-	    spamProb <- spamProb * spamClassProb
-
-	    # Return prediction
-	    if (hamProb > spamProb)
-	    {
-		return ("ham")
-	    }
-	    else
-	    {
-		return ("spam")
-	    }
+	    return (hamProb > spamProb)
 	},
                     
         # score you test set so to get the understanding how well you model
@@ -138,40 +117,27 @@ naiveBayes <- setRefClass("naiveBayes",
         # try how well your model generalizes to real world data! 
 	score = function(X_test, y_test)
 	{
-	    counter <- 0
+	    resultVector <- c()
 	    for(i in 1:nrow(X_test))
 	    {
 		message <- X_test[i, ]
 		prediction <- predict(message$Message)
-
-		if (prediction == y_test[i])
-		{
-		    counter <- counter + 1
-		}
+		
+		resultVector <- c(resultVector, prediction)
 	    }
 
-	    print(counter / nrow(X_test))
-
-	    #return (f1Score(y_test, predict(X_test$Message)))
+	    return (f1Score(y_test, resultVector))
 	}
 ))
 
-test <- read_csv("data/test.csv")
-train <- read_csv("data/train.csv")
-
-# Calcutate spam and ham frequencies in test set
-spam = nrow(test[test$Category=="spam", ])
-ham = nrow(test[test$Category=="ham", ])
-
-print(c(spam, ham))
+test <- read_csv("data/test.csv", show_col_types = FALSE)
+train <- read_csv("data/train.csv", show_col_types = FALSE)
 
 model = naiveBayes()
+
 model$fit(train, train$Category)
-model$predict("i see. When we finish we have loads of loans to pay")
+model$score(test, test$Category == "ham")
 
-print("Scoring model...")
+model$predict("")
 
-model$score(test, test$Category)
-
-print(c(spam, ham))
 
